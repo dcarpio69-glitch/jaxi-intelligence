@@ -3,7 +3,7 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 
 export type Lang = 'es' | 'en';
 
-interface LangCtx { lang: Lang; toggle: () => void; t: (key: string) => string; }
+interface LangCtx { lang: Lang; toggle: () => void; t: (key: string, ...args: string[]) => string; }
 
 const LangContext = createContext<LangCtx>({ lang: 'es', toggle: () => {}, t: k => k });
 
