@@ -33,6 +33,11 @@ coverage/
 # ─── Prisma ──────────────────────────────────────────────
 prisma/migrations/*.lock
 
+# ─── SQLite local DB (never commit data files) ───────────
+*.db
+*.db-wal
+*.db-shm
+
 # ─── OS ──────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
