@@ -41,10 +41,12 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  loginWithMicrosoft: () => Promise<void>;
-  loginWithProcore:   () => Promise<void>;
-  logout:             () => void;
-  refreshUser:        () => Promise<void>;
+  loginWithMicrosoft:  () => Promise<void>;
+  loginWithProcore:    () => Promise<void>;
+  loginWithEmail:      (email: string, password: string) => Promise<void>;
+  registerWithEmail:   (email: string, name: string, password: string) => Promise<void>;
+  logout:              () => void;
+  refreshUser:         () => Promise<void>;
 }
 
 // ─── Context ──────────────────────────────────────────────
@@ -55,8 +57,10 @@ const AuthContext = createContext<AuthContextType>({
   accessToken: null,
   isLoading: true,
   isAuthenticated: false,
-  loginWithMicrosoft: async () => {},
-  loginWithProcore:   async () => {},
+  loginWithMicrosoft:  async () => {},
+  loginWithProcore:    async () => {},
+  loginWithEmail:      async () => {},
+  registerWithEmail:   async () => {},
   logout: () => {},
   refreshUser: async () => {},
 });
@@ -112,25 +116,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /** Redirect to Microsoft OAuth */
   const loginWithMicrosoft = useCallback(async () => {
-    try {
-      const res = await fetch(`${API}/auth/microsoft/connect`);
-      const { authUrl } = await res.json();
-      window.location.href = authUrl;
-    } catch (err) {
-      console.error('Microsoft login failed', err);
-    }
+    window.location.href = `${API}/auth/microsoft/connect`;
   }, []);
 
   /** Redirect to Procore OAuth */
   const loginWithProcore = useCallback(async () => {
-    try {
-      const res = await fetch(`${API}/auth/procore/connect`);
-      const { authUrl } = await res.json();
-      window.location.href = authUrl;
-    } catch (err) {
-      console.error('Procore login failed', err);
-    }
+    window.location.href = `${API}/auth/procore/connect`;
   }, []);
+
+  /** Login with email + password */
+  const loginWithEmail = useCallback(async (email: string, password: string) => {
+    const res = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Login fallido');
+    localStorage.setItem('jaxi_token', data.token);
+    await fetchMe(data.token);
+    window.location.href = '/dashboard';
+  }, [fetchMe]);
+
+  /** Register with email + password */
+  const registerWithEmail = useCallback(async (email: string, name: string, password: string) => {
+    const res = await fetch(`${API}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Registro fallido');
+    localStorage.setItem('jaxi_token', data.token);
+    await fetchMe(data.token);
+    window.location.href = '/dashboard';
+  }, [fetchMe]);
 
   /** Handle token received from OAuth callback */
   const handleToken = useCallback((token: string) => {
@@ -153,7 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [state.accessToken, fetchMe]);
 
   return (
-    <AuthContext.Provider value={{ ...state, loginWithMicrosoft, loginWithProcore, logout, refreshUser }}>
+    <AuthContext.Provider value={{ ...state, loginWithMicrosoft, loginWithProcore, loginWithEmail, registerWithEmail, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

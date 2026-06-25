@@ -1,8 +1,10 @@
 /**
- * JAXI Intelligence — OAuth Routes
- * Handles Microsoft + Procore OAuth 2.0 authorization flows.
+ * JAXI Intelligence — Auth Routes
+ * Handles email/password login + Microsoft + Procore OAuth 2.0.
  *
  * Routes:
+ *   POST /api/v1/auth/register            → Register with email + password
+ *   POST /api/v1/auth/login               → Login with email + password
  *   GET  /api/v1/auth/microsoft/connect   → Redirect to Microsoft login
  *   GET  /api/v1/auth/microsoft/callback  → Handle Microsoft OAuth callback
  *   GET  /api/v1/auth/procore/connect     → Redirect to Procore login
@@ -15,7 +17,8 @@
 import { Router, Request, Response } from 'express';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
-import { upsertUser, upsertOAuthToken, getOAuthToken, getTokensByUser, getUserById } from '../utils/db';
+import bcrypt from 'bcryptjs';
+import { upsertUser, upsertOAuthToken, getOAuthToken, getTokensByUser, getUserById, findUserByEmail, getDb } from '../utils/db';
 import { procoreSync } from '../services/procoreSync';
 import { outlookSync } from '../services/outlookSync';
 
@@ -46,6 +49,68 @@ function authMiddleware(req: Request): string | null {
     return p.userId;
   } catch { return null; }
 }
+
+// ── Email / Password Auth ─────────────────────────────────
+
+router.post('/register', async (req: Request, res: Response) => {
+  const { email, name, password } = req.body;
+  if (!email || !name || !password) {
+    return res.status(400).json({ error: 'email, name y password son requeridos' });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+  }
+
+  const existing = findUserByEmail(email.toLowerCase().trim());
+  if (existing) {
+    return res.status(409).json({ error: 'Este email ya está registrado' });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const db = getDb();
+  const id = require('crypto').randomUUID();
+  db.prepare(`
+    INSERT INTO users (id, email, name, role, passwordHash)
+    VALUES (?, ?, ?, 'PM', ?)
+  `).run(id, email.toLowerCase().trim(), name.trim(), passwordHash);
+
+  const token = makeToken(id);
+  res.status(201).json({
+    token,
+    user: { id, email: email.toLowerCase().trim(), name: name.trim(), role: 'PM' },
+  });
+});
+
+router.post('/login', async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'email y password son requeridos' });
+  }
+
+  const user = findUserByEmail(email.toLowerCase().trim());
+  if (!user) {
+    return res.status(401).json({ error: 'Email o contraseña incorrectos' });
+  }
+
+  if (!user.passwordHash) {
+    return res.status(401).json({ error: 'Esta cuenta usa Microsoft o Procore para iniciar sesión' });
+  }
+
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    return res.status(401).json({ error: 'Email o contraseña incorrectos' });
+  }
+
+  // Update last login
+  const db = getDb();
+  db.prepare('UPDATE users SET lastLoginAt=CURRENT_TIMESTAMP WHERE id=?').run(user.id);
+
+  const token = makeToken(user.id);
+  res.json({
+    token,
+    user: { id: user.id, email: user.email, name: user.name, role: user.role },
+  });
+});
 
 // ── Microsoft OAuth ───────────────────────────────────────
 
