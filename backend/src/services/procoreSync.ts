@@ -53,26 +53,47 @@ export class ProcoreSyncService {
 
   async getUserProjects(userId: string): Promise<any[]> {
     const token = await this.getAccessToken(userId);
-    if (!token) return [];
+    if (!token) { console.error('[Procore] No access token for userId:', userId); return []; }
     try {
-      const meRes = await axios.get(`${this.baseUrl}/rest/v1.0/me`, {
+      // Step 1: Get companies the user belongs to
+      const companiesRes = await axios.get(`${this.baseUrl}/rest/v1.0/companies`, {
         headers: { Authorization: `Bearer ${token}` },
+        params:  { per_page: 100 },
       });
-      const companies = meRes.data.companies || [];
+      const companies: any[] = companiesRes.data || [];
+      console.log(`[Procore] Found ${companies.length} companies:`, companies.map((c: any) => `${c.name}(${c.id})`).join(', '));
+
+      if (companies.length === 0) {
+        // Fallback: try /me to see what user data we get
+        const meRes = await axios.get(`${this.baseUrl}/rest/v1.0/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        console.log('[Procore] /me response:', JSON.stringify(meRes.data).slice(0, 500));
+        return [];
+      }
+
       const all: any[] = [];
       for (const co of companies) {
-        const proj = await axios.get(`${this.baseUrl}/rest/v1.0/projects`, {
-          headers: { Authorization: `Bearer ${token}` },
-          params:  { company_id: co.id, per_page: 100 },
-        });
-        all.push(...(proj.data || []));
+        try {
+          const proj = await axios.get(`${this.baseUrl}/rest/v1.0/projects`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params:  { company_id: co.id, per_page: 100 },
+          });
+          const projects = proj.data || [];
+          console.log(`[Procore] Company "${co.name}": ${projects.length} projects`);
+          all.push(...projects);
+        } catch (projErr: any) {
+          console.error(`[Procore] Failed to get projects for company ${co.id}:`, projErr?.response?.data || projErr.message);
+        }
       }
+      console.log(`[Procore] Total projects found: ${all.length}`);
       return all;
     } catch (e: any) {
-      console.error('[Procore] Get projects failed:', e?.response?.data || e.message);
+      console.error('[Procore] Get companies/projects failed:', e?.response?.status, e?.response?.data || e.message);
       return [];
     }
   }
+
 
   async syncRFIs(userId: string, projectId: string, procoreProjectId: number): Promise<number> {
     const token = await this.getAccessToken(userId);
