@@ -71,7 +71,7 @@ export async function getProcoreProfile(accessToken: string): Promise<ProcoreUse
     logger.error('Procore /me failed', { status: res.status, err });
     throw new Error(`Procore API error: ${res.status}`);
   }
-  return res.json();
+  return res.json() as Promise<ProcoreUserProfile>;
 }
 
 // ─── Get all projects user is a member of ────────────────

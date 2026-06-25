@@ -36,7 +36,7 @@ export async function getMicrosoftProfile(accessToken: string): Promise<Microsof
     logger.error('Microsoft Graph /me failed', { status: res.status, err });
     throw new Error(`Microsoft Graph error: ${res.status}`);
   }
-  return res.json();
+  return res.json() as Promise<MicrosoftUserProfile>;
 }
 
 // ─── Get emails related to a project keyword ─────────────
@@ -59,7 +59,7 @@ export async function searchProjectEmails(
     return [];
   }
 
-  const data = await res.json();
+  const data = (await res.json()) as { value?: OutlookEmail[] };
   return data.value ?? [];
 }
 

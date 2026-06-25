@@ -268,7 +268,7 @@ router.get('/outlook/demo-connect', (_req: Request, res: Response) => {
     insertMany(demoEmails);
 
     // Log a successful sync
-    logSync({ source: 'OUTLOOK', status: 'SUCCESS', recordsProcessed: demoEmails.length, message: 'Demo connect — 12 emails seeded' });
+    logSync('demo', 'OUTLOOK', 'SUCCESS', demoEmails.length, 'Demo connect — 12 emails seeded');
 
     console.log('[Demo] Outlook demo connection established with', demoEmails.length, 'email threads');
     res.redirect(`${config.FRONTEND_URL}/settings?connected=outlook&user=${encodeURIComponent('Daniel Carpio')}`);
