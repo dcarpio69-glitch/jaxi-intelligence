@@ -312,6 +312,7 @@ router.get('/procore/connect', (_req: Request, res: Response) => {
     client_id:     config.PROCORE_CLIENT_ID,
     response_type: 'code',
     redirect_uri:  config.PROCORE_REDIRECT_URI,
+    scope:         'procore_global',
   });
 
   res.redirect(`https://login.procore.com/oauth/authorize?${params.toString()}`);
