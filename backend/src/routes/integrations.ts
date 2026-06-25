@@ -279,6 +279,28 @@ router.get('/outlook/demo-connect', (_req: Request, res: Response) => {
   }
 });
 
+// ─── Procore Manual Sync ──────────────────────────────────────────────────────
+
+router.post('/procore/sync', async (_req: Request, res: Response) => {
+  const db = getDb();
+  const tokenRow = db.prepare(
+    "SELECT userId FROM oauth_tokens WHERE provider='PROCORE' ORDER BY updatedAt DESC LIMIT 1"
+  ).get() as any;
+
+  if (!tokenRow) {
+    return res.status(400).json({ error: 'Procore not connected' });
+  }
+
+  try {
+    res.json({ status: 'syncing', message: 'Procore sync started in background' });
+    triggerProcoreSync(tokenRow.userId).catch(e =>
+      console.error('[Procore] Manual sync error:', e.message)
+    );
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Procore OAuth — Step 1 ───────────────────────────────────────────────────
 
 router.get('/procore/connect', (_req: Request, res: Response) => {
