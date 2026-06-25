@@ -1,6 +1,7 @@
 # Railway configuration for backend deployment
 [build]
 builder = "NIXPACKS"
+buildCommand = "npm install --include=dev && npm run build"
 
 [deploy]
 startCommand = "node dist/app.js"
