@@ -36,11 +36,19 @@ router.get('/status', (_req: Request, res: Response) => {
     "SELECT syncedAt FROM sync_logs WHERE source='OUTLOOK' AND status='SUCCESS' ORDER BY syncedAt DESC LIMIT 1"
   ).get() as any)?.syncedAt ?? null;
 
+  // hasSyncedRealData: true ONLY when RFIs were actually pulled from Procore
+  // Demo RFIs have IDs like '6008-rfi-78' or 'demo-78', real Procore RFIs have 'procore-...'
+  const realRfiCount = (db.prepare(
+    "SELECT COUNT(*) as n FROM rfis WHERE id LIKE 'procore-%'"
+  ).get() as any)?.n ?? 0;
+  const hasSyncedRealData = realRfiCount > 0;
+
   res.json({
     integrations: {
       outlook: outlookConnected,
       procore: procoreConnected,
     },
+    hasSyncedRealData,
     stats: {
       emailThreads: emailCount,
       lastOutlookSync: lastSync,

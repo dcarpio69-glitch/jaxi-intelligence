@@ -69,7 +69,7 @@ const Icons = {
 // ─── Integration status ───────────────────────────────────────────────────────
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
 
-interface IntegStatus { outlook: boolean; procore: boolean; emailThreads?: number; }
+interface IntegStatus { outlook: boolean; procore: boolean; hasSyncedRealData?: boolean; emailThreads?: number; }
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -83,9 +83,10 @@ export default function Sidebar() {
       .then(d => setStatus({
         outlook: d.integrations?.outlook ?? d.outlook ?? false,
         procore: d.integrations?.procore ?? d.procore ?? false,
+        hasSyncedRealData: d.hasSyncedRealData ?? false,
         emailThreads: d.stats?.emailThreads ?? 0,
       }))
-      .catch(() => setStatus({ outlook: false, procore: false }));
+      .catch(() => setStatus({ outlook: false, procore: false, hasSyncedRealData: false }));
 
     fetch(`${API}/data/summary?projectId=6008`)
       .then(r => r.json())
@@ -101,6 +102,7 @@ export default function Sidebar() {
         .then(d => setStatus({
           outlook: d.integrations?.outlook ?? d.outlook ?? false,
           procore: d.integrations?.procore ?? d.procore ?? false,
+          hasSyncedRealData: d.hasSyncedRealData ?? false,
         }))
         .catch(() => {});
     }, 30000);
@@ -109,12 +111,14 @@ export default function Sidebar() {
 
   const { lang, toggle, t } = useLanguage();
 
-  const isConnected = status?.outlook && status?.procore;
-  const isPartial   = (status?.outlook || status?.procore) && !isConnected;
-  const statusColor = isConnected ? '#9FD340' : isPartial ? '#FFC24D' : '#FF6B6B';
-  const statusBg    = isConnected ? 'rgba(159,211,64,0.08)' : isPartial ? 'rgba(255,194,77,0.08)' : 'rgba(255,107,107,0.08)';
-  const statusBorder= isConnected ? 'rgba(159,211,64,0.2)'  : isPartial ? 'rgba(255,194,77,0.2)'  : 'rgba(255,107,107,0.2)';
-  const statusLabel = isConnected ? t('status.live') : isPartial ? t('status.partial') : t('status.offline');
+  // LIVE DATA only when real Procore data was actually synced into the DB
+  const isLive      = status?.hasSyncedRealData === true;
+  const isConnected = isLive;
+  const isPartial   = !isLive && (status?.outlook || status?.procore);
+  const statusColor = isLive ? '#9FD340' : isPartial ? '#FFC24D' : '#FF8C8C';
+  const statusBg    = isLive ? 'rgba(159,211,64,0.08)' : isPartial ? 'rgba(255,194,77,0.08)' : 'rgba(255,140,140,0.08)';
+  const statusBorder= isLive ? 'rgba(159,211,64,0.2)'  : isPartial ? 'rgba(255,194,77,0.2)'  : 'rgba(255,140,140,0.2)';
+  const statusLabel = isLive ? t('status.live') : t('status.demo');
 
   const navGroups = [
     {
