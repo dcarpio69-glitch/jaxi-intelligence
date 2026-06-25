@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 
@@ -103,8 +103,9 @@ const CSS = `
 
   /* ── Source badge ── */
   .src { font-size:10px; font-weight:600; padding:2px 7px; border-radius:5px; white-space:nowrap; }
-  .src-ol { background:rgba(37,99,235,.12); color:#93C5FD; border:1px solid rgba(37,99,235,.2); }
-  .src-p  { background:rgba(100,116,139,.08); color:var(--faint); border:1px solid var(--line); }
+  .src-ol   { background:rgba(37,99,235,.12); color:#93C5FD; border:1px solid rgba(37,99,235,.2); }
+  .src-p    { background:rgba(100,116,139,.08); color:var(--faint); border:1px solid var(--line); }
+  .src-demo { background:rgba(255,194,77,.10); color:#FFC24D; border:1px solid rgba(255,194,77,.25); }
 
   /* ── Risk bar ── */
   .risk-wrap { display:flex; align-items:center; gap:8px; }
@@ -202,15 +203,13 @@ const CSS = `
   tbody tr { animation:fadeIn .2s ease both; }
 `;
 
-const allRfis = [
-  { id:'r1',  num:'RFI-042', title:'Especificaciones de concreto — Sección B',     titleEn:'Concrete Specifications — Section B',          status:'OPEN',     priority:'CRITICAL', disc:'Structural',   daysLeft:0,  assignee:'E. Martínez', riskScore:95, source:'PROCORE' },
-  { id:'r2',  num:'RFI-021', title:'Altura libre — Nivel 4 Estacionamiento',        titleEn:'Clear Height — Level 4 Parking Garage',          status:'OVERDUE',  priority:'CRITICAL', disc:'Civil',        daysLeft:-3, assignee:'O. Cardenas', riskScore:92, source:'PROCORE' },
-  { id:'r3',  num:'RFI-038', title:'Cambio estructural — Viga W12x40',              titleEn:'Structural Change — W12x40 Beam',                status:'PENDING',  priority:'HIGH',     disc:'Structural',   daysLeft:4,  assignee:'C. Reyes',    riskScore:70, source:'PROCORE+OUTLOOK' },
-  { id:'r4',  num:'RFI-019', title:'Especificación de impermeabilización piscina', titleEn:'Pool Waterproofing Specification',                  status:'OPEN',     priority:'HIGH',     disc:'Civil',        daysLeft:2,  assignee:'A. Pérez',    riskScore:78, source:'PROCORE+OUTLOOK' },
-  { id:'r5',  num:'RFI-035', title:'Coordinación MEP — Piso 8',                  titleEn:'MEP Coordination — Floor 8',                     status:'OPEN',     priority:'HIGH',     disc:'MEP',          daysLeft:6,  assignee:'A. Pérez',    riskScore:60, source:'PROCORE+OUTLOOK' },
-  { id:'r6',  num:'RFI-031', title:'Detalles de acabado de fachada',               titleEn:'Facade Finish Details',                             status:'OPEN',     priority:'MEDIUM',   disc:'Architecture', daysLeft:10, assignee:'L. García',   riskScore:35, source:'PROCORE' },
-  { id:'r7',  num:'RFI-028', title:'Especificación de impermeabilización',         titleEn:'Waterproofing Specification',                       status:'ANSWERED', priority:'MEDIUM',   disc:'Civil',        daysLeft:99, assignee:'M. Salazar',  riskScore:0,  source:'PROCORE+OUTLOOK' },
-  { id:'r8',  num:'RFI-025', title:'Aclaración de plano — Escalera S2',           titleEn:'Drawing Clarification — Staircase S2',            status:'CLOSED',   priority:'LOW',      disc:'Architecture', daysLeft:99, assignee:'P. López',    riskScore:0,  source:'PROCORE' },
+// Fallback demo data — clearly labeled as DEMO (not PROCORE)
+const FALLBACK_RFIS = [
+  { id:'r1',  num:'RFI-078', title:'Extremely Limited Space for Exterior Finishes & Humidity Concerns', titleEn:'Extremely Limited Space for Exterior Finishes & Humidity Concerns', status:'OPEN',     priority:'CRITICAL', disc:'Other', daysLeft:-119, assignee:'Ingrid Melendez', riskScore:95, source:'DEMO' },
+  { id:'r2',  num:'RFI-088', title:'Level 3 RCP vs. Mechanical Duct Conflicts',                         titleEn:'Level 3 RCP vs. Mechanical Duct Conflicts',                         status:'OPEN',     priority:'HIGH',     disc:'Other', daysLeft:-98,  assignee:'Len Ricardo',     riskScore:88, source:'DEMO' },
+  { id:'r3',  num:'RFI-142', title:'Pipe diameter vs wall thickness, N3-10',                            titleEn:'Pipe diameter vs wall thickness, N3-10',                            status:'OPEN',     priority:'MEDIUM',   disc:'Other', daysLeft:-18,  assignee:'Oscar Hernandez', riskScore:62, source:'DEMO' },
+  { id:'r4',  num:'RFI-147', title:'Proposed location for AT&T equipment room',                        titleEn:'Proposed location for AT&T equipment room',                        status:'OPEN',     priority:'MEDIUM',   disc:'Other', daysLeft:-13,  assignee:'Oscar Hernandez', riskScore:55, source:'DEMO' },
+  { id:'r5',  num:'RFI-154', title:'Conflict, Level 3 common-area entry doors',                        titleEn:'Conflict, Level 3 common-area entry doors',                        status:'OPEN',     priority:'MEDIUM',   disc:'Other', daysLeft:-9,   assignee:'Oscar Hernandez', riskScore:48, source:'DEMO' },
 ];
 
 const pillStyle: Record<string, string> = {
@@ -330,15 +329,61 @@ function Donut({ data, onHover }: {
   );
 }
 
+type RfiRow = { id:string; num:string; title:string; titleEn:string; status:string; priority:string; disc:string; daysLeft:number; assignee:string; riskScore:number; source:string };
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
+
 export default function RFIsPage() {
   const { t, lang } = useLanguage();
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [hoveredRfi, setHoveredRfi] = useState<typeof allRfis[0] | null>(null);
+  const [allRfis, setAllRfis] = useState<RfiRow[]>(FALLBACK_RFIS);
+  const [procoreConnected, setProcoreConnected] = useState(false);
+  const [hoveredRfi, setHoveredRfi] = useState<RfiRow | null>(null);
   const [chartFilter, setChartFilter] = useState<string | null>(null);
-  const [selectedRfi, setSelectedRfi] = useState<typeof allRfis[0] | null>(null);
+  const [selectedRfi, setSelectedRfi] = useState<RfiRow | null>(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 8;
+
+  // Fetch real data from backend API
+  useEffect(() => {
+    const load = async () => {
+      try {
+        // Check if Procore is connected
+        const statusR = await fetch(`${API}/integrations/status`);
+        const statusD = await statusR.json();
+        const isProcore = !!(statusD.integrations?.procore ?? statusD.procore);
+        setProcoreConnected(isProcore);
+
+        // Fetch RFIs from backend DB
+        const r = await fetch(`${API}/data/rfis`);
+        const d = await r.json();
+        if (d.rfis && d.rfis.length > 0) {
+          const mapped: RfiRow[] = d.rfis.map((rfi: any) => ({
+            id:        rfi.id,
+            num:       `RFI-${String(rfi.procoreNum ?? rfi.number).padStart(3,'0')}`,
+            title:     rfi.title,
+            titleEn:   rfi.title,
+            status:    rfi.status === 'OVERDUE' ? 'OVERDUE' : rfi.daysOverdue > 0 && rfi.status === 'OPEN' ? 'OVERDUE' : rfi.status,
+            priority:  rfi.priority || 'MEDIUM',
+            disc:      rfi.discipline || 'Other',
+            daysLeft:  -(rfi.daysOverdue ?? 0),
+            assignee:  rfi.ballInCourt || rfi.assignee || '—',
+            riskScore: rfi.riskScore ?? 0,
+            // Only show PROCORE badge if Procore is actually connected AND data came from Procore
+            source:    isProcore && !rfi.id.startsWith('demo-') && !rfi.id.match(/^6008-rfi-/)  
+                         ? (rfi.emailThreads?.length > 0 ? 'PROCORE+OUTLOOK' : 'PROCORE')
+                         : 'DEMO',
+          }));
+          setAllRfis(mapped);
+        }
+      } catch (e) {
+        // Fall back to FALLBACK_RFIS (already in state, labeled DEMO)
+        console.warn('[RFIs] Could not load from API, using fallback demo data');
+      }
+    };
+    load();
+  }, []);
 
   const pillLabel: Record<string, string> = {
     OPEN:    t('status.open'),
@@ -537,15 +582,15 @@ export default function RFIsPage() {
                           </div>
                         </td>
                         <td>
-                          {rfi.source === 'PROCORE+OUTLOOK' ? (
+                          {rfi.source === 'DEMO' ? (
+                            <span className="src src-demo" title="Datos de demostración — conecta Procore para ver datos reales">DEMO</span>
+                          ) : rfi.source === 'PROCORE+OUTLOOK' ? (
                             <div style={{ display:'flex', gap:4 }}>
                               <span className="src src-p" title="Procore">PC</span>
                               <span className="src src-ol" title="Outlook">OL</span>
                             </div>
                           ) : (
-                            <span className={`src ${rfi.source.includes('OUTLOOK')?'src-ol':'src-p'}`}>
-                              {rfi.source === 'PROCORE' ? 'PC' : rfi.source}
-                            </span>
+                            <span className="src src-p" title="Procore">PC</span>
                           )}
                         </td>
                         <td>
@@ -726,7 +771,11 @@ function RFIDrawer({ rfi, onClose, pillLabel, pillStyle, dueLabel, riskColor, la
           </div>
           <div className="d-field">
             <span className="d-label">Fuente</span>
-            <span className="d-val">{rfi.source}</span>
+            <span className="d-val" style={{
+              color: rfi.source === 'DEMO' ? '#FFC24D' : rfi.source.includes('OUTLOOK') ? '#93C5FD' : 'var(--muted)'
+            }}>
+              {rfi.source === 'DEMO' ? '⚠ DEMO — conecta Procore' : rfi.source === 'PROCORE+OUTLOOK' ? 'PROCORE + OUTLOOK' : 'PROCORE'}
+            </span>
           </div>
         </div>
 
