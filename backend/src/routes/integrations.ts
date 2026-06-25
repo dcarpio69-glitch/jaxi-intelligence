@@ -471,7 +471,7 @@ router.post('/procore/sync', async (req: Request, res: Response) => {
     }
 
     res.json({ message: 'Procore sync started' });
-    runProcoreInitialSync(tokenRow.userId).catch(console.error);
+    triggerProcoreSync(tokenRow.userId).catch(console.error);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
