@@ -76,7 +76,7 @@ export async function getEmailThread(
   });
 
   if (!res.ok) return [];
-  const data = await res.json();
+  const data = (await res.json()) as { value?: OutlookEmail[] };
   return data.value ?? [];
 }
 

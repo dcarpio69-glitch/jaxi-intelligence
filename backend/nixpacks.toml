@@ -1,2 +1,11 @@
 [phases.setup]
-nixPkgs = ["...", "python3", "gcc"]
+nixPkgs = ["python3", "gcc", "gnumake", "pkg-config"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build", "node setup-db.js"]
+
+[start]
+cmd = "node dist/app.js"

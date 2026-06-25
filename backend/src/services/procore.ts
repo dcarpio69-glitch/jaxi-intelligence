@@ -121,7 +121,7 @@ export async function getProjectRFIs(
     logger.warn('Could not fetch Procore RFIs', { projectId, status: res.status });
     return [];
   }
-  return res.json();
+  return res.json() as Promise<ProcoreRFI[]>;
 }
 
 // ─── Get Submittals for a project ────────────────────────
@@ -138,7 +138,7 @@ export async function getProjectSubmittals(
     logger.warn('Could not fetch Procore Submittals', { projectId, status: res.status });
     return [];
   }
-  return res.json();
+  return res.json() as Promise<ProcoreSubmittal[]>;
 }
 
 // ─── Refresh Procore access token ─────────────────────────
