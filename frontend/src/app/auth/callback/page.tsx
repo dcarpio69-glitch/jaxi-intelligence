@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState , Suspense} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'processing' | 'error'>('processing');
@@ -98,3 +98,12 @@ export default function AuthCallbackPage() {
     </div>
   );
 }
+
+
+export default function AuthCallbackPage() {
+  return (
+      <Suspense fallback={<div className="wrap">Loading...</div>}>
+            <AuthCallbackContent />
+                </Suspense>
+                  );
+                  }
