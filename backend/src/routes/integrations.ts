@@ -444,4 +444,38 @@ export async function triggerProcoreSync(userId: string): Promise<void> {
   }
 }
 
+// ─── Procore Disconnect ───────────────────────────────────────────────────────
+
+router.post('/procore/disconnect', (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    db.prepare("DELETE FROM oauth_tokens WHERE provider='PROCORE'").run();
+    console.log('[Procore] Token deleted — user disconnected');
+    res.json({ success: true, message: 'Procore disconnected' });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Procore Sync (manual trigger) ───────────────────────────────────────────
+
+router.post('/procore/sync', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const tokenRow = db.prepare(
+      "SELECT userId FROM oauth_tokens WHERE provider='PROCORE' ORDER BY updatedAt DESC LIMIT 1"
+    ).get() as any;
+
+    if (!tokenRow) {
+      return res.status(400).json({ error: 'Procore not connected' });
+    }
+
+    res.json({ message: 'Procore sync started' });
+    runProcoreInitialSync(tokenRow.userId).catch(console.error);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
+
