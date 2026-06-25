@@ -58,7 +58,7 @@ export class ProcoreSyncService {
       // Step 1: Get companies the user belongs to
       const companiesRes = await axios.get(`${this.baseUrl}/rest/v1.0/companies`, {
         headers: { Authorization: `Bearer ${token}` },
-        params:  { per_page: 100 },
+        params:  { per_page: 100, include_free_companies: true },
       });
       const companies: any[] = companiesRes.data || [];
       console.log(`[Procore] Found ${companies.length} companies:`, companies.map((c: any) => `${c.name}(${c.id})`).join(', '));
